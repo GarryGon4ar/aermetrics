@@ -27,5 +27,5 @@ e.g .../statistics/?status=Finished
 ```
 
 PS. I haven't prepared environment for productions use(uwsgi or gunicorn instead of runserver, 
-volume for db, entrypoint or sth to get rid of manual command to run migrations)
+volume for db, entrypoint or sth to get rid of manual command to run migrations, retrieved env variables)
 
