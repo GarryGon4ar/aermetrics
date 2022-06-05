@@ -2,21 +2,14 @@
 
 import pandas as pd
 from django.db import transaction
-from django.db.models import Sum
 from rest_framework import generics
 from rest_framework import status
-from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.models import Logs
-from api.serializers import LogsSerializer, LogsFileUploadSerializer
-from django_filters.rest_framework import DjangoFilterBackend
-
-
-class LogsAPIView(generics.ListAPIView):
-    queryset = Logs.objects.all()
-    serializer_class = LogsSerializer
+from api.serializers import LogsFileUploadSerializer
+from django.db import connection
 
 
 class LogsFileUploadView(generics.CreateAPIView):
@@ -35,71 +28,34 @@ class LogsFileUploadView(generics.CreateAPIView):
         return Response({"status": "success"}, status.HTTP_201_CREATED)
 
 
-class AircraftsListView(APIView):
-    """View all aircrafts."""
+class LogsAPIView(APIView):
+    """View logs statistics view."""
 
     def get(self, request):
-        """Return a list of all aircrafts."""
-        return Response(Logs.objects.values_list('aircraft').distinct().order_by('aircraft'))
-
-
-class StatusesListView(APIView):
-    """View all statuses."""
-
-    def get(self, request):
-        """Get a list of all statuses."""
-        return Response(Logs.objects.values_list('status').distinct().order_by('status'))
-
-
-class TypesListView(APIView):
-    """View all types."""
-
-    def get(self, request):
-        """Get a list of all types."""
-        return Response(Logs.objects.values_list('type').distinct().order_by('type'))
-
-
-class MyGenericView(GenericAPIView):
-    queryset = Logs.objects.all()
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["status", "title", "type"]
-
-    def get(self, request):
-        queryset = self.get_queryset()
-        if status_ := request.query_params.get('status'):
-            queryset = queryset.filter(status=status_)
-        if type_ := request.query_params.get('type'):
-            queryset = queryset.filter(type=type_)
-        if aircraft := request.query_params.get('aircraft'):
-            queryset = queryset.filter(aircraft=aircraft)
-        aggregate = queryset.aggregate(
-            info_count=Sum('info_count'),
-            errors_count=Sum('errors_count'),
-            pre_legend=Sum('pre_legend'),
-            warning=Sum('warning'),
-            paired_b=Sum('paired_b'),
-            legend=Sum('legend'),
-            lower_b=Sum('lower_b'),
-            repeat_legend=Sum('repeat_legend'),
-            upper_a=Sum('upper_a'),
-            lower_a=Sum('lower_a'),
-            paired_a=Sum('paired_a'),
-        )
-        return Response(
-            {
-                "aircraft": self.request.query_params.get('aircraft'),
-                "type": self.request.query_params.get('type'),
-                "status": self.request.query_params.get('status'),
-                "info_count": aggregate['info_count'],
-                "errors_count": aggregate['errors_count'],
-                "pre_legend": aggregate['pre_legend'],
-                "warning": aggregate['warning'],
-                "paired_b": aggregate['paired_b'],
-                "legend": aggregate['legend'],
-                "lower_b": aggregate['lower_b'],
-                "repeat_legend": aggregate['repeat_legend'],
-                "upper_a": aggregate['upper_a'],
-                "lower_a": aggregate['lower_a'],
-                "paired_a": aggregate['paired_a'],
-            }
-        )
+        """GET method with raw query."""
+        query_ = '''
+        SELECT 
+            aircraft, 
+            type, 
+            status, 
+            sum(info_count) as info_count, 
+            sum(errors_count) as errors_count, 
+            sum(pre_legend) as pre_legend, 
+            sum(warning) as warning, 
+            sum(paired_b) as paired_b, 
+            sum(legend) as legend, 
+            sum(lower_b) as lower_b, 
+            sum(repeat_legend) as repeat_legend, 
+            sum(upper_a) as upper_a, 
+            sum(lower_a) as lower_a, 
+            sum(paired_a) as paired_a  
+        FROM api_logs 
+        group by 
+            grouping sets (
+                (aircraft), (type), (status)
+            ) 
+        order by aircraft, type, status'''
+        with connection.cursor() as c:
+            c.execute(query_)
+            columns = [col[0] for col in c.description]
+            return Response(dict(zip(columns, row)) for row in c.fetchall())
