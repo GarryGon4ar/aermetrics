@@ -14,15 +14,9 @@ docker exec -ti aermetrics_web_1 python manage.py migrate
 ## Endpoints
 
 ```python
-GET /api/types - list of types
-GET /api/aircrafts - list of aircrafts
-GET /api/statuses - list of statuses
+GET api/ - get statistics by every aircraft, status and type
 
-POST /upload - upload csv file with data
-    
-GET /statistics/<query params> - get data by every type, aircraft or status
-
-e.g .../statistics/?status=Finished
+POST api/upload - upload csv file with data
  
 ```
 
